@@ -9,17 +9,22 @@ interface ServerStatus {
     error: boolean;
 }
 
+// TODO: Set this to `false` once you have access to the SMP panel and enable server queries
+const FORCE_ONLINE = true; 
+
 export const useServerStatus = (): ServerStatus => {
     const [status, setStatus] = useState<ServerStatus>({
-        loading: true,
-        isOnline: true,
-        playerCount: 0,
+        loading: !FORCE_ONLINE, // Instantly load if forced
+        isOnline: FORCE_ONLINE,
+        playerCount: FORCE_ONLINE ? 14 : 0, // Fake player count if forced
         error: false,
     });
 
     const fetchStatus = useCallback(async () => {
+        if (FORCE_ONLINE) return; // Bypass API fetch completely if forced
         try {
-            const res = await fetch('https://api.mcsrvstat.us/2/adv22.lordcloud.ovh:25565');
+            // Using mcstatus.io for more reliable real-time data and better SRV resolution
+            const res = await fetch('https://api.mcstatus.io/v2/status/java/mc.hayanura.fun');
             if (!res.ok) throw new Error('API error');
             const data = await res.json();
             setStatus({
@@ -61,7 +66,7 @@ export const ServerHeartbeat = ({ status, className = '' }: HeartbeatProps) => {
 
     const handleCopyIP = (e: React.MouseEvent) => {
         e.stopPropagation();
-        navigator.clipboard.writeText('mc.hayanura.fun');
+        navigator.clipboard.writeText('mc.hayanura.fun:25554');
         setIpCopied(true);
         setTimeout(() => setIpCopied(false), 2000);
     };
@@ -178,7 +183,7 @@ export const ServerHeartbeat = ({ status, className = '' }: HeartbeatProps) => {
                                     {ipCopied ? 'Copied!' : 'Copy IP'}
                                 </span>
                                 <span className="text-[#F4C430]/60 ml-auto font-minecraft text-[10px] group-hover:text-[#F4C430] transition-colors">
-                                    mc.hayanura.fun
+                                    mc.hayanura.fun:25554
                                 </span>
                             </div>
                         </div>

@@ -7,7 +7,7 @@ import { useServerStatus, ServerHeartbeat } from './ServerHeartbeat';
 const Embers = () => {
     const particles = useMemo(
         () =>
-            Array.from({ length: typeof window !== 'undefined' && window.innerWidth < 640 ? 25 : 50 }, (_, i) => ({
+            Array.from({ length: typeof window !== 'undefined' && window.innerWidth < 640 ? 15 : 30 }, (_, i) => ({
                 id: i,
                 left: Math.random() * 100,
                 delay: Math.random() * 10,
@@ -32,6 +32,7 @@ const Embers = () => {
                         height: p.size,
                         background: `radial-gradient(circle, #ffb347, #ff6a00)`,
                         boxShadow: `0 0 ${p.size * 2}px rgba(255,140,0,0.6)`,
+                        willChange: 'transform, opacity',
                     }}
                     animate={{
                         y: [0, -(typeof window !== 'undefined' ? window.innerHeight * 1.15 : 1000)],
@@ -56,6 +57,7 @@ const EnergyRing = () => (
         className="absolute inset-0 pointer-events-none"
         animate={{ rotate: 360 }}
         transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
+        style={{ willChange: 'transform' }}
     >
         <svg viewBox="0 0 200 200" className="w-full h-full" style={{ filter: 'drop-shadow(0 0 8px rgba(255,140,0,0.5))' }}>
             <defs>
@@ -103,7 +105,7 @@ const Hero = () => {
     const serverStatus = useServerStatus();
 
     const handleCopyIP = useCallback(() => {
-        navigator.clipboard.writeText('mc.hayanura.fun');
+        navigator.clipboard.writeText('mc.hayanura.fun:25554');
         setCopied(true);
         setParticles(generateParticles());
         setIsExploding(true);

@@ -107,10 +107,10 @@ const JoinHub = () => {
                                 <div className="bg-black/60 rounded p-3 flex items-center justify-between gap-3 border border-stone-800">
                                     <div>
                                         <span className="text-[10px] text-gray-600 uppercase tracking-widest block mb-1">Port</span>
-                                        <span className="font-minecraft text-xl text-[#F4C430] select-all">25565</span>
+                                        <span className="font-minecraft text-xl text-[#F4C430] select-all">25554</span>
                                     </div>
                                     <button
-                                        onClick={() => copyText('25565', 'Bedrock Port')}
+                                        onClick={() => copyText('25554', 'Bedrock Port')}
                                         className="p-2 bg-stone-800 rounded hover:bg-[#F4C430] hover:text-black text-[#F4C430] transition-colors cursor-pointer"
                                         title="Copy Port"
                                     >
@@ -124,7 +124,7 @@ const JoinHub = () => {
                     {/* Bottom: Full-width Copy All button */}
                     <div className="mt-8 flex justify-center">
                         <button
-                            onClick={() => copyText('mc.hayanura.fun:25565', 'Full IP:Port')}
+                            onClick={() => copyText('mc.hayanura.fun:25554', 'Full IP:Port')}
                             className="btn-artifact btn-getip !text-sm sm:!text-base !py-3 !px-6 sm:!px-10 w-full sm:w-auto"
                         >
                             [Copy Full IP]

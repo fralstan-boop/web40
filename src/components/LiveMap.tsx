@@ -28,7 +28,7 @@ const LiveMap = () => {
                     {/* Interactive Map Iframe */}
                     <div className="relative z-10 w-full aspect-[4/3] sm:aspect-video rounded overflow-hidden border-2 border-stone-800 hover:border-[#F4C430]/50 transition-colors duration-500 relative bg-stone-900">
                         <iframe
-                            src="http://mc.hayanura.fun:25576/"
+                            src="http://mc.hayanura.fun:25598/"
                             title="HayaSMP BlueMap"
                             className="absolute inset-0 w-full h-full border-none"
                             sandbox="allow-scripts allow-same-origin allow-popups"
@@ -38,7 +38,7 @@ const LiveMap = () => {
                     {/* Open Fullscreen Button */}
                     <div className="relative z-10 mt-6 flex justify-center">
                         <a
-                            href="http://mc.hayanura.fun:25576/"
+                            href="http://mc.hayanura.fun:25598/"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn-artifact btn-discord !text-sm !py-3 !px-8 flex items-center gap-2"

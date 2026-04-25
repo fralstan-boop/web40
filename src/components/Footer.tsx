@@ -98,7 +98,7 @@ const Footer = () => {
                     {/* LEFT: Seal of Authority */}
                     <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-center sm:text-left">
                         <img
-                            src="https://github.com/fralstan-boop/etwf/blob/main/New%20Element%20153%20%5BE148B87%5D.png?raw=true"
+                            src="/assets/hayaland-emblem.png"
                             alt="Hayaland Emblem"
                             className="flex-shrink-0 w-14 h-14 sm:w-18 sm:h-18 md:w-22 md:h-22 object-contain"
                             style={{
