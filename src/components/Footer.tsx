@@ -1,5 +1,6 @@
 import { Youtube } from 'lucide-react';
 import { useState } from 'react';
+import { siteConfig } from '../config/siteConfig';
 
 const SocialCoin = ({
     href,
@@ -74,7 +75,7 @@ const Footer = () => {
             <div
                 className="absolute inset-0 pointer-events-none z-[1]"
                 style={{
-                    backgroundImage: 'url("/assets/footer-overlay.png")',
+                    backgroundImage: 'url("/assets/footer-overlay.webp")',
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',
@@ -98,6 +99,7 @@ const Footer = () => {
                     {/* LEFT: Seal of Authority */}
                     <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-center sm:text-left">
                         <img
+                            loading="lazy"
                             src="/assets/hayaland-emblem.png"
                             alt="Hayaland Emblem"
                             className="flex-shrink-0 w-14 h-14 sm:w-18 sm:h-18 md:w-22 md:h-22 object-contain"
@@ -126,7 +128,7 @@ const Footer = () => {
                             icon={<Youtube className="w-5 h-5 text-[#F4C430]/80 group-hover:text-[#F4C430]" />}
                         />
                         <SocialCoin
-                            href="https://discord.gg/Q6tBHmqzJf"
+                            href={siteConfig.discordInvite}
                             tooltip="Join the Chaos"
                             icon={
                                 <svg className="w-5 h-5 text-[#F4C430]/80" fill="currentColor" viewBox="0 0 24 24">
@@ -139,7 +141,8 @@ const Footer = () => {
                     {/* RIGHT: HayanuraCorp Corporate Watermark */}
                     <div className="hidden md:flex flex-col items-end gap-1 text-right flex-shrink-0">
                         <img
-                            src="/assets/hayanuracorp.png"
+                            loading="lazy"
+                            src="/assets/hayanuracorp.webp"
                             alt="HayanuraCorp"
                             className="w-48 lg:w-56 object-contain mb-1 opacity-60"
                         />

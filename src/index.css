@@ -29,7 +29,7 @@
     z-index: -1;
     pointer-events: none;
     opacity: 0.22;
-    background-image: url("/assets/deepslate-texture.png");
+    background-image: url("/assets/deepslate-texture.webp");
     background-repeat: repeat;
     background-size: 400px;
     mix-blend-mode: soft-light;

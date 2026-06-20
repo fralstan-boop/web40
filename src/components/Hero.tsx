@@ -1,352 +1,490 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { Compass, Check } from 'lucide-react';
-import { useMemo, useState, useCallback } from 'react';
+import { memo, useMemo, useState, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence, useReducedMotion, type Variants } from 'framer-motion';
+import { Compass, Check, Map } from 'lucide-react';
 import { useServerStatus, ServerHeartbeat } from './ServerHeartbeat';
+import { siteConfig } from '../config/siteConfig';
 
-/* ── Ember Particle System — tiny, drifting, varied speeds ── */
-const Embers = () => {
-    const particles = useMemo(
-        () =>
-            Array.from({ length: typeof window !== 'undefined' && window.innerWidth < 640 ? 15 : 30 }, (_, i) => ({
-                id: i,
-                left: Math.random() * 100,
-                delay: Math.random() * 10,
-                duration: 6 + Math.random() * 10, // varied slow speeds
-                size: 1 + Math.random() * 1.5,    // 1–2.5px
-                drift: (Math.random() - 0.5) * 80,
-                opacity: 0.3 + Math.random() * 0.5,
-            })),
-        []
-    );
+// ─────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────
+const SERVER_IP = siteConfig.javaIp;
+const GOLD = '#F4C430';
+const TEAL = '#5FA8B5';
 
-    return (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
-            {particles.map((p) => (
-                <motion.div
-                    key={p.id}
-                    className="absolute rounded-full"
-                    style={{
-                        left: `${p.left}%`,
-                        bottom: '-3%',
-                        width: p.size,
-                        height: p.size,
-                        background: `radial-gradient(circle, #ffb347, #ff6a00)`,
-                        boxShadow: `0 0 ${p.size * 2}px rgba(255,140,0,0.6)`,
-                        willChange: 'transform, opacity',
-                    }}
-                    animate={{
-                        y: [0, -(typeof window !== 'undefined' ? window.innerHeight * 1.15 : 1000)],
-                        x: [0, p.drift],
-                        opacity: [0, p.opacity, p.opacity * 0.6, 0],
-                    }}
-                    transition={{
-                        duration: p.duration,
-                        repeat: Infinity,
-                        delay: p.delay,
-                        ease: 'linear',
-                    }}
-                />
-            ))}
-        </div>
-    );
+// ─────────────────────────────────────────────
+// Deterministic pseudo-random (no Math.random in render)
+// ─────────────────────────────────────────────
+function seededRand(seed: number) {
+    const x = Math.sin(seed + 1) * 10000;
+    return x - Math.floor(x);
+}
+
+// ─────────────────────────────────────────────
+// Framer Motion shared variants
+// ─────────────────────────────────────────────
+const fadeUp: Variants = {
+    hidden: { opacity: 0, y: 28 },
+    visible: (delay = 0) => ({ opacity: 1, y: 0, transition: { duration: 1, ease: 'easeOut', delay } }),
 };
 
-/* ── Rotating Energy Ring SVG ── */
-const EnergyRing = () => (
-    <motion.div
-        className="absolute inset-0 pointer-events-none"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-        style={{ willChange: 'transform' }}
-    >
-        <svg viewBox="0 0 200 200" className="w-full h-full" style={{ filter: 'drop-shadow(0 0 8px rgba(255,140,0,0.5))' }}>
-            <defs>
-                <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#FFD700" stopOpacity="0.8" />
-                    <stop offset="50%" stopColor="#FF8C00" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
-                </linearGradient>
-            </defs>
-            <ellipse cx="100" cy="100" rx="88" ry="32" fill="none" stroke="url(#ringGrad)" strokeWidth="1.5" />
-        </svg>
-    </motion.div>
-);
+const fadeIn: Variants = {
+    hidden: { opacity: 0 },
+    visible: (delay = 0) => ({ opacity: 1, transition: { duration: 0.9, ease: 'easeOut', delay } }),
+};
 
-/* ── Diamond Divider ── */
-const DiamondDivider = () => (
-    <div className="flex items-center gap-3 w-full max-w-md mx-auto my-4 opacity-50">
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[#F4C430]" />
-        <div className="w-2 h-2 bg-[#F4C430] rotate-45 shadow-[0_0_6px_rgba(244,196,48,0.5)]" />
-        <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[#F4C430]" />
-    </div>
-);
+// ─────────────────────────────────────────────
+// Stars
+// ─────────────────────────────────────────────
+interface StarData {
+    id: number; left: number; top: number;
+    size: number; delay: number; duration: number;
+}
 
-/* ── Particle Burst Generator ── */
-const generateParticles = () =>
-    Array.from({ length: 18 }, (_, i) => {
-        const angle = (Math.PI * 2 * i) / 18 + (Math.random() - 0.5) * 0.6;
-        const velocity = 60 + Math.random() * 80;
-        const size = 3 + Math.random() * 3;
+const buildStars = (count: number): StarData[] =>
+    Array.from({ length: count }, (_, i) => ({
+        id: i,
+        left: seededRand(i * 7) * 100,
+        top: seededRand(i * 13) * 68,
+        size: 1 + seededRand(i * 3) * 1.5,
+        delay: seededRand(i * 5) * 7,
+        duration: 2.5 + seededRand(i * 11) * 4,
+    }));
+
+const Stars = memo(({ reduced }: { reduced: boolean }) => {
+    const [count, setCount] = useState(70);
+    useEffect(() => { setCount(window.innerWidth < 640 ? 25 : 70); }, []);
+    const stars = useMemo(() => buildStars(count), [count]);
+
+    if (reduced) return null;
+
+    return (
+        <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none z-10">
+            {stars.map(s => (
+                <motion.div
+                    key={s.id}
+                    className="absolute rounded-full bg-white"
+                    style={{ left: `${s.left}%`, top: `${s.top}%`, width: s.size, height: s.size, willChange: 'opacity' }}
+                    animate={{ opacity: [0.1, 0.9, 0.1] }}
+                    transition={{ duration: s.duration, repeat: Infinity, delay: s.delay, ease: 'easeInOut' }}
+                />
+            ))}
+            {/* Shooting stars — CSS only, transform + opacity */}
+            <div className="shooting-star shooting-star-1" aria-hidden />
+            <div className="shooting-star shooting-star-2" aria-hidden />
+            <div className="shooting-star shooting-star-3" aria-hidden />
+        </div>
+    );
+});
+Stars.displayName = 'Stars';
+
+// ─────────────────────────────────────────────
+// Earth
+// ─────────────────────────────────────────────
+const Earth = memo(({ reduced }: { reduced: boolean }) => {
+    const floatAnim = reduced
+        ? {}
+        : { y: [0, -10, 0] };
+    const floatTrans = reduced
+        ? {}
+        : { duration: 7, repeat: Infinity, ease: 'easeInOut' as const };
+
+    return (
+        <motion.div
+            aria-hidden
+            className="absolute left-1/2 z-[2] pointer-events-none"
+            style={{
+                bottom: '-62%',
+                // Desktop: 900px, Mobile: 150vw
+                width: 'min(900px, 150vw)',
+                aspectRatio: '1',
+                x: '-50%',
+            }}
+            initial={{ y: 120, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: reduced ? 0 : 2.2, ease: 'easeOut', delay: reduced ? 0 : 0.3 }}
+        >
+            {/* Slow orbit illusion: very gentle continuous rotation */}
+            <motion.div
+                className="w-full h-full"
+                animate={reduced ? {} : { rotate: [0, 3, 0, -3, 0] }}
+                transition={{ duration: 60, repeat: Infinity, ease: 'linear' }}
+                style={{ willChange: 'transform' }}
+            >
+                <motion.div
+                    className="w-full h-full"
+                    animate={floatAnim}
+                    transition={floatTrans}
+                    style={{ willChange: 'transform' }}
+                >
+                    {/* Atmospheric outer glow (behind globe) */}
+                    <div
+                        className="absolute inset-0 rounded-full"
+                        style={{
+                            background: 'radial-gradient(ellipse at 50% -10%, rgba(244,196,48,0.2) 0%, rgba(95,168,181,0.15) 45%, transparent 80%)',
+                            filter: 'blur(200px)',
+                            transform: 'scale(1.2)'
+                        }}
+                    />
+                    {/* Atmospheric rim glow — box-shadow, zero blur filter */}
+                    <div
+                        className="absolute inset-0 rounded-full"
+                        style={{
+                            boxShadow: [
+                                `0 0 0 1px rgba(${95},${168},${181},0.08)`,
+                                `0 0 80px 25px rgba(95,168,181,0.12)`,
+                                `0 0 160px 55px rgba(95,168,181,0.07)`,
+                                `0 -40px 80px 20px rgba(244,196,48,0.09)`,
+                            ].join(', '),
+                        }}
+                    />
+                    {/* Sunrise edge highlight — top-left arc */}
+                    <div
+                        className="absolute inset-0 rounded-full"
+                        style={{
+                            background:
+                                'radial-gradient(ellipse at 25% 15%, rgba(244,196,48,0.13) 0%, transparent 55%)',
+                        }}
+                    />
+                    <picture>
+                        <source srcSet="/assets/earth-globe.webp" type="image/webp" />
+                        <img
+                            src="/assets/earth-globe.png"
+                            alt="HayaSMP Earth — the living world map"
+                            loading="eager"
+                            decoding="async"
+                            className="w-full h-full object-cover rounded-full"
+                            style={{ clipPath: 'circle(50% at 50% 50%)', willChange: 'transform' }}
+                        />
+                    </picture>
+                </motion.div>
+            </motion.div>
+        </motion.div>
+    );
+});
+Earth.displayName = 'Earth';
+
+// ─────────────────────────────────────────────
+// ParticleBurst
+// ─────────────────────────────────────────────
+interface Particle { id: number; x: number; y: number; size: number; color: string; isDiamond: boolean; rotation: number; }
+
+function buildParticles(): Particle[] {
+    const count = 14;
+    return Array.from({ length: count }, (_, i) => {
+        const angle = (Math.PI * 2 * i) / count + (seededRand(i * 17) - 0.5) * 0.6;
+        const velocity = 55 + seededRand(i * 23) * 70;
         return {
             id: i,
             x: Math.cos(angle) * velocity,
-            y: Math.sin(angle) * velocity + 30, // gravity pull
-            size,
-            color: Math.random() > 0.5 ? '#F4C430' : '#FF4500',
-            isDiamond: Math.random() > 0.6,
-            rotation: Math.random() * 360,
+            y: Math.sin(angle) * velocity + 25,
+            size: 3 + seededRand(i * 31) * 3,
+            color: seededRand(i * 41) > 0.5 ? GOLD : TEAL,
+            isDiamond: seededRand(i * 53) > 0.6,
+            rotation: seededRand(i * 61) * 360,
         };
     });
+}
 
+const PARTICLES = buildParticles(); // static — built once at module load
+
+interface ParticleBurstProps { isExploding: boolean; }
+const ParticleBurst = memo(({ isExploding }: ParticleBurstProps) => (
+    <AnimatePresence>
+        {isExploding && PARTICLES.map(p => (
+            <motion.div
+                key={p.id}
+                className="absolute pointer-events-none z-50"
+                style={{
+                    left: '50%', top: '50%',
+                    width: p.size, height: p.size,
+                    background: p.color,
+                    borderRadius: p.isDiamond ? '1px' : '50%',
+                    rotate: p.isDiamond ? `${p.rotation}deg` : '0deg',
+                    boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
+                }}
+                initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+                animate={{ x: p.x, y: p.y, opacity: 0, scale: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
+            />
+        ))}
+    </AnimatePresence>
+));
+ParticleBurst.displayName = 'ParticleBurst';
+
+// ─────────────────────────────────────────────
+// HeroButton
+// ─────────────────────────────────────────────
+interface HeroButtonProps {
+    onClick: () => void;
+    variant: 'gold' | 'teal';
+    label: string;
+    icon: React.ReactNode;
+    suffix?: React.ReactNode;
+    disabled?: boolean;
+    children?: React.ReactNode;
+}
+const HeroButton = memo(({ onClick, variant, label, icon, suffix, disabled, children }: HeroButtonProps) => {
+    const isGold = variant === 'gold';
+    const base = isGold ? GOLD : TEAL;
+    return (
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={label}
+            className="group relative flex items-center justify-center gap-2.5 px-7 py-3 rounded-sm font-minecraft text-xs sm:text-sm tracking-[0.18em] uppercase border overflow-hidden w-full sm:w-auto transition-colors duration-300 cursor-pointer"
+            style={{
+                background: isGold ? 'rgba(244,196,48,0.05)' : 'rgba(95,168,181,0.05)',
+                borderColor: isGold ? 'rgba(244,196,48,0.35)' : 'rgba(95,168,181,0.35)',
+                color: isGold ? 'rgba(244,196,48,0.9)' : 'rgba(95,168,181,0.9)',
+                boxShadow: `0 0 22px ${isGold ? 'rgba(244,196,48,0.14)' : 'rgba(95,168,181,0.14)'}`,
+            }}
+            onFocus={() => {/* accessible */}}
+        >
+            {/* Hover fill sweep */}
+            <div
+                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                style={{ background: isGold ? 'rgba(244,196,48,0.07)' : 'rgba(95,168,181,0.07)' }}
+            />
+            {/* Shimmer sweep on hover */}
+            <div
+                className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"
+                style={{ backgroundImage: `linear-gradient(90deg, transparent, ${base}18, transparent)` }}
+            />
+            <span className="relative z-10 flex items-center gap-2.5">
+                {icon}
+                {children}
+                {suffix}
+            </span>
+            {/* Border glow on hover */}
+            <div
+                className="absolute inset-0 opacity-0 group-hover:opacity-100 rounded-sm transition-opacity duration-300"
+                style={{ boxShadow: `inset 0 0 0 1px ${base}55, 0 0 35px ${base}25` }}
+            />
+        </button>
+    );
+});
+HeroButton.displayName = 'HeroButton';
+
+// ─────────────────────────────────────────────
+// Main Hero
+// ─────────────────────────────────────────────
 const Hero = () => {
-    const [isExploding, setIsExploding] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [particles, setParticles] = useState<ReturnType<typeof generateParticles>>([]);
+    const [isExploding, setIsExploding] = useState(false);
     const serverStatus = useServerStatus();
+    const reduced = useReducedMotion() ?? false;
 
     const handleCopyIP = useCallback(() => {
-        navigator.clipboard.writeText('mc.hayanura.fun:25554');
+        navigator.clipboard.writeText(SERVER_IP);
         setCopied(true);
-        setParticles(generateParticles());
         setIsExploding(true);
-        setTimeout(() => setIsExploding(false), 900);
-        setTimeout(() => setCopied(false), 3000);
+        const t1 = setTimeout(() => setIsExploding(false), 900);
+        const t2 = setTimeout(() => setCopied(false), 3000);
+        return () => { clearTimeout(t1); clearTimeout(t2); };
     }, []);
+
+    const scrollToMap = useCallback(() => {
+        document.getElementById('world-map')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+    }, [reduced]);
+
     return (
-        <motion.section
-            className="relative w-full min-h-screen flex flex-col items-center justify-center overflow-hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 2 }}
-        >
-            {/* ── LAYER 1: Cinematic Background ── */}
-            <div
-                className="absolute inset-0 z-0"
+        <>
+            {/* Shooting star CSS injected once */}
+            <style>{SHOOTING_STAR_CSS}</style>
+
+            <motion.section
+                className="relative w-full min-h-[100svh] flex flex-col items-center justify-center overflow-hidden"
+                initial="hidden"
+                animate="visible"
+                aria-label="HayaSMP Earth — Hero"
                 style={{
-                    backgroundImage: 'url("/assets/cinematic-background.png")',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center center',
-                    backgroundRepeat: 'no-repeat',
+                    background: [
+                        'radial-gradient(ellipse at 50% 0%, #0D1F2D 0%, #060C12 45%, #020507 100%)',
+                    ].join(', '),
                 }}
-            />
-            <div className="absolute inset-0 z-[1] bg-gradient-to-t from-black via-black/50 to-transparent" />
-            <div className="absolute inset-0 z-[1] bg-gradient-to-b from-black/50 via-transparent to-transparent" />
-
-            {/* ── LAYER 2: Embers ── */}
-            <Embers />
-
-            {/* ── LAYER 3: Content ── */}
-            <div className="relative z-20 flex flex-col items-center gap-0 px-3 sm:px-4 py-10 sm:py-16 w-full max-w-5xl">
-
-                {/* ── ARTIFACT CUBE with Pulsing Glow + Energy Ring ── */}
-                <motion.div
-                    className="relative w-36 h-36 md:w-48 md:h-48 mb-6"
-                    animate={{ y: [0, -8, 0] }}
-                    transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-                >
-                    {/* Pulsing glow behind cube */}
-                    <motion.div
-                        className="absolute inset-0 rounded-full"
-                        style={{
-                            background: 'radial-gradient(circle, rgba(255,140,0,0.3) 0%, transparent 70%)',
-                            filter: 'blur(20px)',
-                        }}
-                        animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                    />
-                    <EnergyRing />
-                    <img
-                        src="/assets/floating-cube-core.png"
-                        alt="HayaSMP Artifact Cube"
-                        className="absolute inset-0 w-full h-full object-contain z-10"
-                        style={{ filter: 'drop-shadow(0 0 40px rgba(255,140,0,0.4))' }}
-                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/h-block.png'; }}
-                    />
-                </motion.div>
-
-                {/* ── "H A Y A  S M P" — Cinzel light, wide spacing ── */}
-                <motion.div
-                    className="flex items-center gap-4 w-full max-w-lg"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5, duration: 1 }}
-                >
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[#F4C430]/70" />
-                    <p
-                        className="text-white/90 uppercase text-sm md:text-base font-normal whitespace-nowrap"
-                        style={{ fontFamily: "'Cinzel', serif", letterSpacing: '0.5rem' }}
-                    >
-                        H A Y A &nbsp;&nbsp; S M P
-                    </p>
-                    <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[#F4C430]/70" />
-                </motion.div>
-
-                {/* ── "WELCOME TO THE" — Playfair Display, thin, elegant ── */}
-                <motion.h1
-                    className="text-white text-3xl sm:text-5xl md:text-7xl lg:text-8xl uppercase leading-none tracking-wide text-center mt-3"
-                    style={{ fontFamily: "'Playfair Display', serif", fontWeight: 400 }}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7, duration: 1 }}
-                >
-                    Welcome to the
-                </motion.h1>
-
-                {/* ── "CHAOS" — Gradient text + soft blur glow, pulsing ── */}
-                <motion.h2
-                    className="text-5xl sm:text-6xl md:text-8xl lg:text-[9rem] leading-none -mt-1 md:-mt-3"
+            >
+                {/* ── BG: Rim-light atmospheric glow behind the earth ── */}
+                <div
+                    aria-hidden
+                    className="absolute left-1/2 bottom-0 z-[1] pointer-events-none"
                     style={{
-                        fontFamily: "'BlowBrush', cursive",
-                        background: 'linear-gradient(to right, #FFD700, #FF8C00)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                        filter: 'drop-shadow(0 0 20px rgba(255, 140, 0, 0.6))',
+                        transform: 'translateX(-50%)',
+                        width: 'min(1100px, 160vw)',
+                        height: '45vh',
+                        background: [
+                            'radial-gradient(ellipse at 50% 100%, rgba(244,196,48,0.16) 0%, rgba(95,168,181,0.12) 30%, transparent 65%)',
+                        ].join(', '),
                     }}
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.9, duration: 0.8, ease: 'easeOut' }}
-                >
-                    CHAOS
-                </motion.h2>
-                {/* Pulsing underline glow for CHAOS */}
-                <motion.div
-                    className="w-48 md:w-72 h-[2px] rounded-full -mt-2"
-                    style={{ background: 'linear-gradient(to right, transparent, #FF8C00, transparent)' }}
-                    animate={{ opacity: [0.3, 0.8, 0.3], scaleX: [0.8, 1, 0.8] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                 />
 
-                <DiamondDivider />
+                {/* ── LAYER: Earth ── */}
+                <Earth reduced={reduced} />
 
-                {/* ── Sub-headline ── */}
-                <motion.p
-                    className="font-minecraft text-sm md:text-base text-white/50 uppercase tracking-[0.25em] sm:tracking-[0.35em] text-center"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1.2, duration: 1 }}
-                >
-                    Semi-Anarchy &nbsp;•&nbsp; Total Madness &nbsp;•&nbsp; One Overworked Admin
-                </motion.p>
+                {/* ── LAYER: Stars ── */}
+                <Stars reduced={reduced} />
 
-                {/* ── Glass Artifact Buttons ── */}
-                <motion.div
-                    className="flex flex-col sm:flex-row gap-4 mt-10"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.4, duration: 0.8 }}
-                >
-                    {/* Join Discord */}
-                    <a
-                        href="https://discord.gg/Q6tBHmqzJf"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group relative flex items-center justify-center gap-3 px-5 sm:px-7 py-2.5 rounded font-minecraft text-xs sm:text-sm tracking-[0.15em] sm:tracking-[0.2em] text-white/80 uppercase border border-[#8B0000]/60 hover:border-[#ff4444] transition-all duration-500 cursor-pointer overflow-hidden w-full sm:w-auto"
+                {/* ── LAYER: Bottom fade (space → earth seamline) ── */}
+                <div
+                    aria-hidden
+                    className="absolute bottom-0 left-0 right-0 z-[3] pointer-events-none"
+                    style={{ height: '38%', background: 'linear-gradient(to top, #020507 0%, transparent 100%)' }}
+                />
+
+                {/* ── LAYER: Lower hero darkening for CTA legibility ── */}
+                <div
+                    aria-hidden
+                    className="absolute inset-x-0 bottom-0 z-[4] pointer-events-none"
+                    style={{ height: '55%', background: 'linear-gradient(to bottom, transparent 0%, rgba(5,8,14,0.5) 100%)' }}
+                />
+
+
+
+                {/* ── LAYER: Content ── */}
+                <div className="relative z-20 flex flex-col items-center px-4 sm:px-6 w-full max-w-5xl">
+
+                    {/* Headline: One World. */}
+                    <motion.h1
+                        className="text-white text-[2.6rem] xs:text-5xl sm:text-6xl md:text-8xl lg:text-[6.5rem] uppercase leading-[0.9] tracking-wide text-center mt-20 sm:mt-28 md:mt-32"
+                        variants={fadeUp}
+                        custom={0.45}
                         style={{
-                            backdropFilter: 'blur(4px)',
-                            background: 'rgba(139,0,0,0.08)',
-                            boxShadow: '0 0 12px rgba(139,0,0,0.25), inset 0 0 12px rgba(139,0,0,0.1)',
+                            fontFamily: "'Playfair Display', serif",
+                            fontWeight: 400,
+                            textShadow: '0 4px 16px rgba(0,0,0,0.7), 0 1px 4px rgba(0,0,0,0.9)',
                         }}
                     >
-                        <svg className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-                        </svg>
-                        Join Discord
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-                    </a>
+                        One World.
+                    </motion.h1>
 
-                    {/* Get Server IP — with Particle Burst */}
-                    <div className="relative w-full sm:w-auto">
-                        <button
-                            onClick={handleCopyIP}
-                            className="group relative flex items-center justify-center gap-3 px-5 sm:px-7 py-2.5 rounded font-minecraft text-xs sm:text-sm tracking-[0.15em] sm:tracking-[0.2em] uppercase border transition-all duration-500 cursor-pointer overflow-hidden w-full sm:w-auto"
-                            style={{
-                                backdropFilter: 'blur(4px)',
-                                background: copied ? 'rgba(244,196,48,0.12)' : 'rgba(244,196,48,0.04)',
-                                borderColor: copied ? '#F4C430' : 'rgba(244,196,48,0.3)',
-                                color: copied ? '#F4C430' : 'rgba(244,196,48,0.8)',
-                                boxShadow: copied
-                                    ? '0 0 25px rgba(244,196,48,0.4), inset 0 0 15px rgba(244,196,48,0.1)'
-                                    : '0 0 12px rgba(244,196,48,0.12), inset 0 0 12px rgba(244,196,48,0.05)',
-                                filter: !serverStatus.isOnline ? 'grayscale(50%)' : 'none',
-                            }}
+                    {/* Headline: Infinite Empires. */}
+                    <motion.h2
+                        className="text-[2.4rem] xs:text-5xl sm:text-6xl md:text-8xl lg:text-[6.5rem] leading-[0.9] -mt-1 sm:-mt-2 text-center"
+                        variants={fadeUp}
+                        custom={0.65}
+                        style={{
+                            fontFamily: "'Playfair Display', serif",
+                            fontWeight: 700,
+                            fontStyle: 'italic',
+                            background: `linear-gradient(100deg, ${GOLD} 0%, #E8B820 40%, ${TEAL} 100%)`,
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                            filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.7)) drop-shadow(0 1px 4px rgba(0,0,0,0.9))',
+                            paddingRight: '0.15em',
+                            paddingBottom: '0.2em',
+                            marginBottom: '-0.2em',
+                        }}
+                    >
+                        Infinite Empires.
+                    </motion.h2>
+
+                    {/* CTA buttons */}
+                    <motion.div
+                        className="mt-8 sm:mt-9 flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto items-center"
+                        style={{
+                            background: 'rgba(2,5,10,0.60)',
+                            borderRadius: '999px',
+                            padding: '10px 18px',
+                        }}
+                        variants={fadeIn}
+                        custom={1.1}
+                    >
+                        {/* Primary: Join Server */}
+                        <div className="relative w-full sm:w-auto">
+                            <HeroButton
+                                onClick={handleCopyIP}
+                                variant="gold"
+                                label="Copy server IP and join HayaSMP Earth"
+                                icon={
+                                    copied
+                                        ? <Check className="w-4 h-4 text-[#F4C430]" aria-hidden />
+                                        : <Compass className="w-4 h-4" aria-hidden />
+                                }
+                                suffix={!copied ? <span className="opacity-40 group-hover:opacity-100 transition-opacity">›</span> : undefined}
+                            >
+                                {copied ? 'IP Copied!' : 'Join Server'}
+                            </HeroButton>
+                            <ParticleBurst isExploding={isExploding} />
+                        </div>
+
+                        {/* Secondary: Explore World Map */}
+                        <HeroButton
+                            onClick={scrollToMap}
+                            variant="teal"
+                            label="Explore the live world map"
+                            icon={<Map className="w-4 h-4" aria-hidden />}
                         >
-                            {copied ? (
-                                <Check className="w-4 h-4 text-[#F4C430]" />
-                            ) : (
-                                <Compass className="w-4 h-4 text-[#F4C430]/60 group-hover:text-[#F4C430] transition-colors" />
-                            )}
-                            {copied ? 'Copied to Clipboard!' : 'Get Server IP'}
-                            {!copied && <span className="text-[#F4C430]/40 group-hover:text-[#F4C430] transition-colors ml-1">›</span>}
-                            {/* Shimmer */}
-                            <div
-                                className="absolute inset-0 bg-gradient-to-r from-transparent via-[#F4C430]/10 to-transparent transition-transform duration-500"
-                                style={{
-                                    transform: copied ? 'translateX(100%)' : 'translateX(-100%)',
-                                }}
-                            />
-                            {/* Hover shimmer */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#F4C430]/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-                        </button>
+                            Explore World Map
+                        </HeroButton>
+                    </motion.div>
 
-                        {/* Particle Burst Overlay */}
-                        <AnimatePresence>
-                            {isExploding && particles.map((p) => (
-                                <motion.div
-                                    key={p.id}
-                                    className="absolute pointer-events-none z-50"
-                                    style={{
-                                        left: '50%',
-                                        top: '50%',
-                                        width: p.size,
-                                        height: p.size,
-                                        background: p.color,
-                                        borderRadius: p.isDiamond ? '1px' : '50%',
-                                        rotate: p.isDiamond ? `${p.rotation}deg` : '0deg',
-                                        boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
-                                    }}
-                                    initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                                    animate={{
-                                        x: p.x,
-                                        y: p.y,
-                                        opacity: 0,
-                                        scale: 0,
-                                    }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.8, ease: 'easeOut' }}
-                                />
-                            ))}
-                        </AnimatePresence>
-                    </div>
-                </motion.div>
+                    {/* Server Heartbeat */}
+                    <motion.div
+                        className="mt-4"
+                        style={{
+                            background: 'rgba(2,5,10,0.60)',
+                            borderRadius: '999px',
+                            padding: '5px 18px',
+                        }}
+                        variants={fadeIn}
+                        custom={1.35}
+                    >
+                        <ServerHeartbeat status={serverStatus} />
+                    </motion.div>
 
-                {/* ── Live Server Heartbeat ── */}
-                <motion.div
-                    className="mt-8"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1.7, duration: 0.8 }}
-                >
-                    <ServerHeartbeat status={serverStatus} />
-                </motion.div>
 
-                {/* ── Bouncing double-down chevrons ── */}
-                <motion.div
-                    className="mt-10 flex flex-col items-center cursor-pointer opacity-30 hover:opacity-60 transition-opacity"
-                    animate={{ y: [0, 10, 0] }}
-                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                    onClick={() => document.getElementById('join-hub')?.scrollIntoView({ behavior: 'smooth' })}
-                >
-                    <svg width="28" height="14" viewBox="0 0 28 14" fill="none">
-                        <path d="M2 2L14 12L26 2" stroke="#F4C430" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                    <svg width="28" height="14" viewBox="0 0 28 14" fill="none" className="-mt-2 opacity-50">
-                        <path d="M2 2L14 12L26 2" stroke="#F4C430" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                </motion.div>
-            </div>
-        </motion.section>
+
+                    {/* Scroll chevrons */}
+                    <motion.div
+                        className="mt-8 flex flex-col items-center cursor-pointer"
+                        style={{ opacity: 0.45, filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.9))' }}
+                        animate={reduced ? {} : { y: [0, 9, 0] }}
+                        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                        onClick={() => document.getElementById('world-system')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' })}
+                        role="button"
+                        aria-label="Scroll to world system"
+                        tabIndex={0}
+                        onKeyDown={e => e.key === 'Enter' && document.getElementById('world-system')?.scrollIntoView({ behavior: 'smooth' })}
+                        whileHover={{ opacity: 0.75 }}
+                    >
+                        <svg width="26" height="13" viewBox="0 0 26 13" fill="none" aria-hidden>
+                            <path d="M1 1L13 11L25 1" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                        <svg width="26" height="13" viewBox="0 0 26 13" fill="none" aria-hidden className="-mt-2 opacity-45">
+                            <path d="M1 1L13 11L25 1" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                    </motion.div>
+                </div>
+            </motion.section>
+        </>
     );
 };
+
+// ─────────────────────────────────────────────
+// Shooting star CSS (injected once, no extra requests)
+// ─────────────────────────────────────────────
+const SHOOTING_STAR_CSS = `
+.shooting-star {
+    position: absolute;
+    width: 90px;
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.85), transparent);
+    border-radius: 999px;
+    opacity: 0;
+    transform-origin: right center;
+    will-change: transform, opacity;
+}
+@keyframes shoot {
+    0%   { opacity: 0; transform: translateX(0)   translateY(0)   rotate(-28deg); }
+    5%   { opacity: 0.8; }
+    100% { opacity: 0; transform: translateX(-420px) translateY(220px) rotate(-28deg); }
+}
+@media (prefers-reduced-motion: no-preference) {
+    .shooting-star-1 { top: 12%; left: 65%; animation: shoot 5.5s ease-in 2.5s infinite; }
+    .shooting-star-2 { top: 8%;  left: 40%; animation: shoot 5.5s ease-in 8.0s infinite; }
+    .shooting-star-3 { top: 18%; left: 80%; animation: shoot 5.5s ease-in 14s  infinite; }
+}
+`;
 
 export default Hero;

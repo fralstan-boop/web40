@@ -81,7 +81,7 @@ export const AnimatedDivider = () => {
     const isInView = useInView(ref, { once: true, amount: 0.5 });
 
     return (
-        <div ref={ref} className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-center">
+        <div ref={ref} className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-center">
             {/* Left line — draws from center to left */}
             <motion.div
                 className="flex-1 h-[2px] origin-right"

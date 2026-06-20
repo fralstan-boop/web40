@@ -1,61 +1,163 @@
-import { ScrollReveal } from './ScrollReveal';
+import { memo } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Flag, Swords, Handshake, Landmark, type LucideIcon } from 'lucide-react';
 
-const rules = [
-    { id: 1, title: "No Hacking", text: "No lag machines, your walls are your walls. Cowards." },
-    { id: 2, title: "No Lag Machines", text: "The server runs on a potato and a dream. Don't break it." },
-    { id: 3, title: "Raiding Is Allowed", text: "If your base gets griefed, don't cry. Build better walls." },
-    { id: 4, title: "Respect the Admin", text: "I am the only one here. If I'm grumpy, you earned it." },
+const BRASS = '#C9A24E';
+const TEAL = '#5FA8B5';
+const PARCHMENT = '#F3ECDA';
+
+const hexToRgba = (hex: string, alpha: number) => {
+    const v = parseInt(hex.replace('#', ''), 16);
+    const r = (v >> 16) & 255, g = (v >> 8) & 255, b = v & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const fadeUp = (reduced: boolean, delay = 0) => ({
+    hidden: { opacity: 0, y: reduced ? 0 : 30 },
+    visible: { opacity: 1, y: 0, transition: { duration: reduced ? 0.3 : 0.8, ease: 'easeOut' as const, delay } },
+});
+
+const octagonClip = 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)';
+const innerOctagonClip = 'polygon(15px 0, calc(100% - 15px) 0, 100% 15px, 100% calc(100% - 15px), calc(100% - 15px) 100%, 15px 100%, 0 calc(100% - 15px), 0 15px)';
+const hexClip = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
+
+interface SystemCard {
+    id: number;
+    icon: LucideIcon;
+    heading: string;
+    body: string;
+    accent: string;
+}
+
+const CARDS: SystemCard[] = [
+    {
+        id: 1,
+        icon: Flag,
+        heading: 'Claim Nations',
+        body: 'Choose a country. Raise your flag. Build your civilization from the ground up.',
+        accent: BRASS,
+    },
+    {
+        id: 2,
+        icon: Swords,
+        heading: 'Global Wars',
+        body: 'Expand through strategy and conflict. Every border is a battlefield waiting to be drawn.',
+        accent: TEAL,
+    },
+    {
+        id: 3,
+        icon: Handshake,
+        heading: 'Diplomacy',
+        body: 'Create alliances, broker treaties, and outmaneuver your rivals without firing a shot.',
+        accent: BRASS,
+    },
+    {
+        id: 4,
+        icon: Landmark,
+        heading: 'Governments',
+        body: 'Run your country your way — monarchy, democracy, empire. The constitution is yours to write.',
+        accent: TEAL,
+    },
 ];
 
-const gallery = [1, 2, 3, 4, 5, 6];
-
-const Rules = () => {
+const SystemCardItem = memo(({ card, index }: { card: SystemCard; index: number }) => {
+    const Icon = card.icon;
+    const reduced = !!useReducedMotion();
+    
     return (
-        <section className="max-w-5xl mx-auto w-full px-4 py-4">
-            <ScrollReveal>
-                <div className="gold-frame rounded bg-black/80 p-4 sm:p-6 md:p-10">
-                    <h2 className="font-minecraft text-xl sm:text-2xl md:text-4xl text-[#F4C430] uppercase tracking-wider golden-bloom mb-6 sm:mb-8">
-                        Laws of HayaSMP
-                    </h2>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* LEFT: Rule Boxes */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {rules.map((rule) => (
-                                <div
-                                    key={rule.id}
-                                    className="bg-[#8B0000]/30 border border-[#F4C430]/30 rounded p-4 flex flex-col gap-2 hover:border-[#F4C430] transition-colors duration-300"
-                                >
-                                    <h3 className="font-minecraft text-base text-[#F4C430] uppercase tracking-wider">
-                                        {rule.id}. {rule.title}
-                                    </h3>
-                                    <p className="font-body text-sm text-gray-300 leading-relaxed">
-                                        {rule.text}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* RIGHT: Screenshot Gallery Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            {gallery.map((img) => (
-                                <div
-                                    key={img}
-                                    className="aspect-video bg-stone-900 border border-[#F4C430]/10 rounded overflow-hidden group cursor-pointer hover:border-[#F4C430]/50 transition-all duration-300 relative"
-                                >
-                                    {/* Placeholder — replace with actual screenshots */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-stone-800 to-stone-900 group-hover:scale-110 transition-transform duration-500" />
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className="font-minecraft text-xs text-[#F4C430]/40 uppercase tracking-widest group-hover:text-[#F4C430] transition-colors">
-                                            Screenshot {img}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+        <motion.div
+            variants={fadeUp(reduced, 0.1 * index)}
+            className="group relative w-full h-[380px] sm:h-[420px] flex-1 min-w-[260px] max-w-[340px] transition-transform duration-500 hover:-translate-y-2"
+        >
+            {/* Top Hexagon Badge */}
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-14 h-14 z-20 flex items-center justify-center bg-[#05070A] transition-all duration-500 group-hover:scale-110" style={{ clipPath: hexClip, border: `1px solid ${card.accent}`, boxShadow: `0 0 20px ${hexToRgba(card.accent, 0.4)}` }}>
+                <div className="w-full h-full flex items-center justify-center transition-colors duration-500" style={{ background: hexToRgba(card.accent, 0.1) }}>
+                    <div className="w-[85%] h-[85%] flex items-center justify-center bg-[#05070A]" style={{ clipPath: hexClip, border: `1px solid ${hexToRgba(card.accent, 0.5)}` }}>
+                        <Icon className="w-5 h-5" style={{ color: card.accent }} />
                     </div>
                 </div>
-            </ScrollReveal>
+            </div>
+
+            {/* Bottom Diamond Badge */}
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 z-20 bg-[#05070A] rotate-45 transition-all duration-500 group-hover:scale-125 group-hover:rotate-45 group-hover:shadow-[0_0_15px_rgba(255,255,255,0.5)]" style={{ border: `1px solid ${card.accent}`, boxShadow: `0 0 10px ${hexToRgba(card.accent, 0.4)}` }}>
+                <div className="w-full h-full" style={{ background: hexToRgba(card.accent, 0.2) }} />
+            </div>
+
+            {/* Outer Octagon Border */}
+            <div className="relative w-full h-full p-[1px] transition-all duration-500 group-hover:shadow-[0_0_40px_rgba(255,255,255,0.1)]" style={{ background: hexToRgba(card.accent, 0.4), clipPath: octagonClip }}>
+                {/* Inner Card Area */}
+                <div className="relative w-full h-full flex flex-col justify-end p-8 text-center bg-[#05070A] overflow-hidden group-hover:bg-[#070A11] transition-colors duration-500" style={{ clipPath: innerOctagonClip }}>
+                    
+                    {/* Placeholder Background Image / Gradient */}
+                    <div className="absolute inset-0 z-0 pointer-events-none opacity-40 group-hover:opacity-60 transition-opacity duration-700 mix-blend-screen" style={{ background: `radial-gradient(circle at 50% 30%, ${hexToRgba(card.accent, 0.15)} 0%, transparent 70%)` }} />
+                    <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 0H0v20' fill='none' stroke='${encodeURIComponent(hexToRgba(card.accent, 0.2))}' stroke-width='0.5'/%3E%3C/svg%3E")` }} />
+                    
+                    {/* Dark gradient to ensure text readability at the bottom */}
+                    <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#020305] via-[#020305]/80 to-transparent z-10 pointer-events-none" />
+
+                    {/* Card Content */}
+                    <div className="relative z-20 flex flex-col items-center gap-4 mt-auto">
+                        <h3 className="text-lg sm:text-xl font-medium tracking-[0.15em] uppercase" style={{ fontFamily: "'Playfair Display', serif", color: card.accent, textShadow: `0 0 12px ${hexToRgba(card.accent, 0.4)}` }}>
+                            {card.heading}
+                        </h3>
+                        <p className="font-body text-[11px] sm:text-[12px] leading-relaxed max-w-[240px]" style={{ color: hexToRgba(PARCHMENT, 0.6) }}>
+                            {card.body}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
+});
+
+const Rules = () => {
+    const reduced = !!useReducedMotion();
+
+    return (
+        <section id="rules" className="relative w-full px-4 pt-16 pb-24 overflow-hidden flex justify-center bg-[#020305]" aria-labelledby="rules-heading">
+            
+            {/* Full section background image */}
+            <div className="absolute inset-0 z-0 pointer-events-none">
+                <img src="/assets/rules-bg.jpg" onError={(e) => { e.currentTarget.src = '/assets/cinematic-background.png'; }} alt="" className="w-full h-full object-cover opacity-60 mix-blend-screen" />
+                {/* Gradient fades at top and bottom to blend into surrounding sections */}
+                <div className="absolute inset-0 bg-gradient-to-b from-[#020305] via-transparent to-[#020305]" />
+            </div>
+
+            <div className="max-w-[1400px] mx-auto relative z-10 flex flex-col items-center w-full">
+                
+                {/* ── Heading ── */}
+                <motion.div className="mb-8 flex flex-col items-center text-center gap-3" initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} variants={fadeUp(reduced)}>
+                    <div className="flex items-center gap-4 mb-2">
+                        <div className="h-px w-12" style={{ background: `linear-gradient(to right, transparent, ${hexToRgba(BRASS, 0.6)})` }} />
+                        <span className="font-body text-[10px] sm:text-[11px] uppercase tracking-[0.4em] font-semibold" style={{ color: BRASS }}>The World System</span>
+                        <div className="h-px w-12" style={{ background: `linear-gradient(to left, transparent, ${hexToRgba(BRASS, 0.6)})` }} />
+                    </div>
+                    
+                    <h2 id="rules-heading" className="text-4xl sm:text-5xl md:text-[4rem] lg:text-[4.5rem] tracking-wide uppercase mt-1 flex flex-col items-center leading-[1.1]" style={{ fontFamily: "'Playfair Display', serif", fontWeight: 400 }}>
+                        <span className="text-white drop-shadow-[0_2px_12px_rgba(255,255,255,0.2)]">How the World</span>
+                        <span className="mt-2" style={{ background: `linear-gradient(90deg, ${BRASS} 0%, #E8B820 40%, ${TEAL} 100%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.5))' }}>
+                            Is Ruled
+                        </span>
+                    </h2>
+                    
+                    <p className="font-body text-xs sm:text-sm tracking-[0.05em] text-white/60 max-w-[500px] mt-6 leading-relaxed">
+                        Power is in the hands of those who build, conquer, and lead. Everything you do shapes the world.
+                    </p>
+                </motion.div>
+
+                {/* ── Cards Grid ── */}
+                <motion.div 
+                    className="flex flex-col lg:flex-row justify-center items-center lg:items-stretch gap-8 lg:gap-6 xl:gap-8 w-full mt-16 px-4"
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: '-100px' }}
+                >
+                    {CARDS.map((card, index) => (
+                        <SystemCardItem key={card.id} card={card} index={index} />
+                    ))}
+                </motion.div>
+
+            </div>
         </section>
     );
 };

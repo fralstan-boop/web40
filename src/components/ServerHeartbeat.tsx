@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { siteConfig } from '../config/siteConfig';
 
 /* ── Server Status Hook ── */
 interface ServerStatus {
@@ -24,7 +25,7 @@ export const useServerStatus = (): ServerStatus => {
         if (FORCE_ONLINE) return; // Bypass API fetch completely if forced
         try {
             // Using mcstatus.io for more reliable real-time data and better SRV resolution
-            const res = await fetch('https://api.mcstatus.io/v2/status/java/mc.hayanura.fun');
+            const res = await fetch(`https://api.mcstatus.io/v2/status/java/${siteConfig.statusQueryHost}`);
             if (!res.ok) throw new Error('API error');
             const data = await res.json();
             setStatus({
@@ -66,7 +67,7 @@ export const ServerHeartbeat = ({ status, className = '' }: HeartbeatProps) => {
 
     const handleCopyIP = (e: React.MouseEvent) => {
         e.stopPropagation();
-        navigator.clipboard.writeText('mc.hayanura.fun:25554');
+        navigator.clipboard.writeText(siteConfig.javaIp);
         setIpCopied(true);
         setTimeout(() => setIpCopied(false), 2000);
     };
@@ -82,7 +83,7 @@ export const ServerHeartbeat = ({ status, className = '' }: HeartbeatProps) => {
         : status.error
             ? 'World Active'
             : status.isOnline
-                ? `${status.playerCount} Agent${status.playerCount !== 1 ? 's' : ''} in Chaos`
+                ? `${status.playerCount} Ruler${status.playerCount !== 1 ? 's' : ''} Online`
                 : 'Server Sleeping';
 
     return (
@@ -183,7 +184,7 @@ export const ServerHeartbeat = ({ status, className = '' }: HeartbeatProps) => {
                                     {ipCopied ? 'Copied!' : 'Copy IP'}
                                 </span>
                                 <span className="text-[#F4C430]/60 ml-auto font-minecraft text-[10px] group-hover:text-[#F4C430] transition-colors">
-                                    mc.hayanura.fun:25554
+                                    {siteConfig.javaIp}
                                 </span>
                             </div>
                         </div>
